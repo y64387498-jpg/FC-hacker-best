@@ -9,11 +9,11 @@ on:
 
 jobs:
   build:
-    name: Build FC Power Shot
+    name: Build FC Power Shot APK
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -22,26 +22,36 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
 
-      - name: Check Android SDK
+      - name: Locate Android Project
         run: |
-          echo "SDK: $ANDROID_HOME"
-          test -d "$ANDROID_HOME"
+          PROJECT_FILE=$(find . -name settings.gradle.kts -not -path '*/.gradle/*' | head -n 1)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Android project not found!"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Found project: $PROJECT_DIR"
 
-      - name: Accept Android Licenses
-        run: yes | sdkmanager --licenses || true
+      - name: Setup Android SDK
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+          yes | sdkmanager --licenses || true
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FC-PowerShot-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
           
