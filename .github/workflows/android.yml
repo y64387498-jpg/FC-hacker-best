@@ -16,37 +16,39 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.13
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Components
+        run: |
+          sdkmanager --install "platforms;android-36"
+          sdkmanager --install "build-tools;36.0.0"
+          yes | sdkmanager --licenses
+
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
 
-      - name: Locate Android Project
+      - name: Find Project
         run: |
-          PROJECT_FILE=$(find . -name settings.gradle.kts -not -path '*/.gradle/*' | head -n 1)
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "Android project not found!"
+          FILE=$(find . -name settings.gradle.kts | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "Android project missing!"
             exit 1
           fi
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project: $PROJECT_DIR"
-
-      - name: Setup Android SDK
-        run: |
-          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
-          yes | sdkmanager --licenses || true
+          echo "PROJECT_DIR=$(dirname "$FILE")" >> "$GITHUB_ENV"
 
       - name: Build APK
         run: |
           cd "$PROJECT_DIR"
-          gradle assembleDebug --stacktrace
+          gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
